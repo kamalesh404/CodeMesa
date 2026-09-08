@@ -12,19 +12,37 @@ class ReviewerAgent(BaseAgent):
 
     role = "reviewer"
 
-    def run(self, file_path: str, code: str, language: str) -> Dict[str, Any]:
-        """Return a review verdict with issues and a corrected version if needed."""
-        result = self._chat(
+    def run(
+        self,
+        file_path: str,
+        code: str,
+        language: str,
+        syntax_errors: List[str] | None = None,
+    ) -> Dict[str, Any]:
+        """Return a review verdict with issues and a corrected version if needed.
+
+        ``syntax_errors`` optionally carries the output of the automated
+        syntax checker so the reviewer fixes known problems first.
+        """
+        prompt = (
             f"Review this {language} file for correctness, bugs, security issues, and style.\n\n"
             f"FILE: {file_path}\n\n"
             f"```\n{code}\n```\n\n"
+        )
+        if syntax_errors:
+            prompt += (
+                "The automated syntax checker already reported these problems — "
+                "make sure your revised_code fixes all of them:\n"
+                + "\n".join(f"- {e}" for e in syntax_errors)
+                + "\n\n"
+            )
+        prompt += (
             "Return STRICT JSON with keys:\n"
             "- 'passed': boolean (true if no changes needed)\n"
             "- 'issues': array of {issue, severity, line} objects\n"
-            "- 'revised_code': the corrected full file (same as input if no changes)\n",
-            temperature=0.2,
-            max_tokens=4096,
+            "- 'revised_code': the corrected full file (same as input if no changes)\n"
         )
+        result = self._chat(prompt, temperature=0.2, max_tokens=4096)
         return self._parse_json(result, code)
 
     @staticmethod
