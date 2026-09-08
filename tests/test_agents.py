@@ -42,3 +42,11 @@ def test_reviewer_returns_fallback():
     review = agent.run("main.py", "print(1)", "python")
     assert review["passed"] is True
     assert review["revised_code"] == "print(1)"
+
+
+def test_reviewer_includes_syntax_errors():
+    llm = FakeLLM(['{"passed": true, "issues": [], "revised_code": "x"}'])
+    agent = ReviewerAgent(llm)
+    agent.run("main.py", "x", "python", syntax_errors=["SyntaxError: bad (line 1)"])
+    sent = llm.calls[0][-1]["content"]
+    assert "SyntaxError: bad (line 1)" in sent
